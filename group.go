@@ -8,7 +8,7 @@ package smqtt
 
 import (
 	"github.com/eclipse/paho.mqtt.golang"
-	
+	"github.com/Kuching/simplemqtt/session"
 )
 
 // Group allows us to create MQTT API and manipulate them as a group.
@@ -31,6 +31,7 @@ func (group *Group) Listen(sub_topic string, qos byte, handler ...Handler) error
 		c.reset()
 		c.setHandlers(handlers)
 		c.Set("mqtt-msg", msg)
+		c.Set("mqtt-session", SessionID())
 		c.Start()
 		group.router.pool.Put(c)
 	}

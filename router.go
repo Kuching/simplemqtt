@@ -16,8 +16,6 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/glog"
-
-	//"simplemqtt/resp"
 	
 )
 
@@ -80,23 +78,23 @@ func logger() Handler {
 	return func(c *Context) {
 		start := time.Now()
 		msg := c.MustGet("mqtt-msg").(mqtt.Message)
-		mid := msg.MessageID()
-		b := bytes.NewBufferString(fmt.Sprintf("\n[mid:%d] %s %s", mid, ">>> MQTT ", msg.Topic()))
-		b.WriteString(fmt.Sprintf("\n[mid:%d] %s", mid, string(msg.Payload())))
+		sid := c.MustGet("mqtt-session").(string)
+		b := bytes.NewBufferString(fmt.Sprintf("\n[sid:%d] %s %s", sid, ">>> MQTT ", msg.Topic()))
+		b.WriteString(fmt.Sprintf("\n[sid:%d] %s", sid, string(msg.Payload())))
 		c.Next()
 		end := time.Now()
 
 		resp, exists := c.Get("mqtt-resp")
 		if exists {
 			r := resp.(Response)
-			b.WriteString(fmt.Sprintf("\n[mid:%d] %s %s", mid, "<<< MQTT ", r.Topic))
-			b.WriteString(fmt.Sprintf("\n[mid:%d] %s", mid, string(r.Msg)))
+			b.WriteString(fmt.Sprintf("\n[sid:%d] %s %s", sid, "<<< MQTT ", r.Topic))
+			b.WriteString(fmt.Sprintf("\n[sid:%d] %s", sid, string(r.Msg)))
 		}else{
-			b.WriteString(fmt.Sprintf("\n[mid:%d] %s", mid, "<<< MQTT "))
+			b.WriteString(fmt.Sprintf("\n[sid:%d] %s", sid, "<<< MQTT "))
 		}
 		latency := end.Sub(start)
-		b.WriteString(fmt.Sprintf("\n[mid:%d] %v - %v |%13v\n\n",
-			mid,
+		b.WriteString(fmt.Sprintf("\n[sid:%d] %v - %v |%13v\n\n",
+			sid,
 			start.Format("0102 15:04:05.000000"),
 			end.Format("0102 15:04:05.000000"),
 			latency,
