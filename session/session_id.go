@@ -3,7 +3,6 @@ package session
 import (
     "math/rand"
     "time"
-    "strconv"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -25,5 +24,5 @@ func randStringBytesMask(n int) string {
 }
 
 func SessionID() string {
-    return randStringBytesMask(10) + strconv.FormatInt(time.Now().Unix(), 10)
+    return randStringBytesMask(12)
 }
