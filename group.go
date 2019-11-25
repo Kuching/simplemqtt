@@ -31,7 +31,7 @@ func (group *Group) Listen(sub_topic string, qos byte, handler ...Handler) error
 		c.reset()
 		c.setHandlers(handlers)
 		c.Set("mqtt-msg", msg)
-		c.Set("mqtt-session", SessionID())
+		c.Set("mqtt-session", session.SessionID())
 		c.Start()
 		group.router.pool.Put(c)
 	}
