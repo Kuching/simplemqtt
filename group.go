@@ -8,7 +8,7 @@ package smqtt
 
 import (
 	"github.com/eclipse/paho.mqtt.golang"
-	"github.com/Kuching/simplemqtt/session"
+	"github.com/Kuching/simple_mqtt/session"
 )
 
 // Group allows us to create MQTT API and manipulate them as a group.
