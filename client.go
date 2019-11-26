@@ -20,11 +20,11 @@ import (
 // to an MQTT broker.
 func newTLSConfig(conf config.Config) *tls.Config {
 	certpool := x509.NewCertPool()
-	pemCerts, err := ioutil.ReadFile(conf.MqttCert + "/ca.crt")
+	pemCerts, err := ioutil.ReadFile(conf.MqttCertificatePath + "/ca.crt")
 	if err == nil {
 		certpool.AppendCertsFromPEM(pemCerts)
 	}
-	cert, err := tls.LoadX509KeyPair(conf.MqttCert + "/client.crt", conf.MqttCert + "/client.key")
+	cert, err := tls.LoadX509KeyPair(conf.MqttCertificatePath + "/client.crt", conf.MqttCertificatePath + "/client.key")
 	if err != nil {
 		panic(err)
 	}
@@ -51,6 +51,7 @@ func NewClient(conf config.Config)  mqtt.Client {
 	opts.SetDefaultPublishHandler(defaultHandler)
 	opts.SetPingTimeout(10 * time.Second)
 	opts.SetCleanSession(false)
+	opts.SetOrderMatters(false)
 	Client := mqtt.NewClient(opts)
 	if token := Client.Connect(); token.Wait() && token.Error() != nil {
 		panic(token.Error())

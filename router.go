@@ -79,21 +79,21 @@ func logger() Handler {
 		start := time.Now()
 		msg := c.MustGet("mqtt-msg").(mqtt.Message)
 		sid := c.MustGet("mqtt-session").(string)
-		b := bytes.NewBufferString(fmt.Sprintf("\n[sid:%d] %s %s", sid, ">>> MQTT ", msg.Topic()))
-		b.WriteString(fmt.Sprintf("\n[sid:%d] %s", sid, string(msg.Payload())))
+		b := bytes.NewBufferString(fmt.Sprintf("\n[%s] %s %s", sid, ">>> MQTT ", msg.Topic()))
+		b.WriteString(fmt.Sprintf("\n[%s] %s", sid, string(msg.Payload())))
 		c.Next()
 		end := time.Now()
 
 		resp, exists := c.Get("mqtt-resp")
 		if exists {
 			r := resp.(Response)
-			b.WriteString(fmt.Sprintf("\n[sid:%d] %s %s", sid, "<<< MQTT ", r.Topic))
-			b.WriteString(fmt.Sprintf("\n[sid:%d] %s", sid, string(r.Msg)))
+			b.WriteString(fmt.Sprintf("\n[%s] %s %s", sid, "<<< MQTT ", r.Topic))
+			b.WriteString(fmt.Sprintf("\n[%s] %s", sid, string(r.Msg)))
 		}else{
-			b.WriteString(fmt.Sprintf("\n[sid:%d] %s", sid, "<<< MQTT "))
+			b.WriteString(fmt.Sprintf("\n[%s] %s", sid, "<<< MQTT "))
 		}
 		latency := end.Sub(start)
-		b.WriteString(fmt.Sprintf("\n[sid:%d] %v - %v |%13v\n\n",
+		b.WriteString(fmt.Sprintf("\n[%s] %v - %v |%13v\n\n",
 			sid,
 			start.Format("0102 15:04:05.000000"),
 			end.Format("0102 15:04:05.000000"),

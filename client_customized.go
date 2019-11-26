@@ -24,13 +24,13 @@ func newTLSConfig_C(conf config.Config) *tls.Config {
 	// Alternatively, manually add CA certificates to
 	// default openssl CA bundle.
 	certpool := x509.NewCertPool()
-	pemCerts, err := ioutil.ReadFile(conf.MqttCert + "/ca.crt")
+	pemCerts, err := ioutil.ReadFile(conf.MqttCertificatePath + "/ca.crt")
 	if err == nil {
 		certpool.AppendCertsFromPEM(pemCerts)
 	}
 
 	// // Import client certificate/key pair
-	cert, err := tls.LoadX509KeyPair(conf.MqttCert + "/client.crt", conf.MqttCert + "/client.key")
+	cert, err := tls.LoadX509KeyPair(conf.MqttCertificatePath + "/client.crt", conf.MqttCertificatePath + "/client.key")
 	if err != nil {
 		panic(err)
 	}
@@ -107,7 +107,7 @@ func NewClient_C(conf config.Config) mqtt.Client {
 	// each QoS level. By default, this value is true. If set to false,
 	// this flag indicates that messages can be delivered asynchronously
 	// from the client to the application and possibly arrive out of order.
-	// opts.SetOrderMatters(false)
+	opts.SetOrderMatters(false)
 
 	Client := mqtt.NewClient(opts)
 	if token := Client.Connect(); token.Wait() && token.Error() != nil {
