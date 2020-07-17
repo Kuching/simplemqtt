@@ -26,7 +26,6 @@ type Handler func(*Context)
 // Router allows us to create Group and read/write MQTT message
 type Router struct {
 	group *Group
-	//writer *resp.Writer
 	client mqtt.Client
 	// pool is a sync.Pool for context-multiplex
 	pool sync.Pool
@@ -37,7 +36,6 @@ func NewRouter(c mqtt.Client) *Router {
 	router := &Router{
 		group: &Group{},
 		client: c,
-		//writer: resp.NewWriter(c),
 	}
 	router.Use(logger(), recovery())
 	router.pool.New = func() interface{} {
@@ -58,17 +56,15 @@ func (router *Router) Group(topic string) *Group{
 
 // Use add middlewares to router.group.handlers
 func (router *Router) Use(handler ...Handler) {
-	router.group.handlers = combine(router.group.handlers, handler)
+	for _, h := range handler{
+		router.group.handlers = append(router.group.handlers, h)
+	}
 }
 
 func (router *Router) getClient() mqtt.Client{
 	return router.client
 }
-/*
-func (router *Router) getWriter() *resp.Writer{
-	return router.writer
-}
-*/
+
 func (router *Router) allocateContext() *Context{
 	return &Context{router: router}
 }
@@ -130,13 +126,6 @@ func function(pc uintptr) []byte {
 		return dunno
 	}
 	name := []byte(fn.Name())
-	// The name includes the path name to the package, which is unnecessary
-	// since the file name is already included.  Plus, it has center dots.
-	// That is, we see
-	//	runtime/debug.*T·ptrmethod
-	// and want
-	//	*T.ptrmethod
-	// Also the package path might contains dot (e.g. code.google.com/...),
 	// so first eliminate the path prefix
 	if lastslash := bytes.LastIndex(name, slash); lastslash >= 0 {
 		name = name[lastslash+1:]

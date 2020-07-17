@@ -20,7 +20,9 @@ type Group struct {
 
 // Use adds middleware to group.handlers.
 func (group *Group) Use(handler ...Handler) {
-	group.handlers = combine(group.handlers, handler)
+	for _, h := range handler{
+		group.handlers = append(group.handlers, h)
+	}
 }
 
 // Listen is used to make real subscription to MQTT broker.
@@ -41,8 +43,10 @@ func (group *Group) Listen(sub_topic string, qos byte, handler ...Handler) error
 }
 
 func combine(hds1 []Handler, hds2 []Handler) []Handler {
+	handlers := make([]Handler, len(hds1))
+	copy(handlers, hds1)
 	for _, h := range(hds2){
-		hds1 = append(hds1, h)
+		handlers = append(handlers, h)
 	}
-	return hds1
+	return handlers
 }
