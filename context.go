@@ -7,11 +7,9 @@
 package smqtt
 
 import (
+	"time"
 	"math"
-	"encoding/json"
-
-	"github.com/eclipse/paho.mqtt.golang"
-	
+	"encoding/json"	
 )
 
 const abortIndex int8 = math.MaxInt8 / 2
@@ -24,6 +22,11 @@ type Context struct {
 	router *Router
 	keys map[string]interface{}
 	index int8
+	topic string
+	qos byte
+	payload []byte
+	session string
+	abbr string
 }
 
 // When a response is rendered using context.Respond, it will be recorded
@@ -85,8 +88,7 @@ func (c *Context) Start() {
 
 // BindJSON is used to unmarshal the MQTT message to obj
 func (c *Context) BindJSON(obj interface{}) error {
-	msg := c.MustGet("mqtt-msg").(mqtt.Message)
-	return json.Unmarshal(msg.Payload(), &obj)
+	return json.Unmarshal(c.payload, &obj)
 }
 
 // Respond is used to write and send a MQTT message to certain topic as response
@@ -100,6 +102,22 @@ func(c *Context) Respond(topic string, qos byte, retained bool, msg []byte) erro
 	return nil
 }
 
+func (c *Context) Topic() string {
+	return c.topic
+}
+
+func (c *Context) Qos() byte {
+	return c.qos
+}
+
+func (c *Context) Payload() []byte {
+	return c.payload
+}
+
+func (c *Context) Session() string {
+	return c.session
+}
+
 func (c *Context) setHandlers(handlers []Handler){
 	c.handlers = handlers
 }
@@ -107,4 +125,15 @@ func (c *Context) setHandlers(handlers []Handler){
 // reset is used to clear context.keys
 func (c *Context) reset(){
 	c.keys = make(map[string]interface{})
+}
+
+func (c *Context) isDup(mid string) bool {
+	key := c.router.midPrefix + c.abbr + ":" + mid
+	_, err := c.router.mids.Get(key)
+	return err == nil 
+}
+
+func (c *Context) cache(mid string) {
+	key := c.router.midPrefix + c.abbr + ":" + mid
+	c.router.mids.Set(key, "", time.Duration(c.router.midExpiration)*time.Second)
 }

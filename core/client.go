@@ -4,7 +4,7 @@
 
 // Package smqtt implements functions for manipulation of MQTT API.
 // It provides a gin-like way to create MQTT API.
-package smqtt
+package core
 
 import (
 	"time"

@@ -16,8 +16,43 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/glog"
-	
 )
+
+const defaultMidExpiration = 300
+
+type Cache interface{
+	Get(key string) (string, error)
+	Set(key string, value interface{}, expiration time.Duration) error
+}
+
+type Config struct {
+	Name string
+	Dedup bool
+	Prefix string
+	Expiration int
+	Client *ClientConfig
+}
+
+func (c *Config) Default() *Config {
+	conf := &Config {
+		Name: "default",
+		Dedup: true,
+		Prefix: "default_prefix",
+		Expiration: defaultMidExpiration,
+		Client: &ClientConfig {
+			Broker: "ssl://127.0.0.1:8883",
+			ClientId: "default_clientid",
+			CaCertPath: "./ca.crt",
+			ClientCertPath: "./default_clientid.crt",
+			ClientKeyPath: "./default_clientid.key",
+			KeepAlive: 10,
+			PingTimeout: 10,
+			CleanSession: false,
+			OrderMatters: false,
+		},
+	}
+	return conf
+}
 
 // This definition indicates that a handler implementaion 
 // must and only has a *Context as parameter 
@@ -29,19 +64,49 @@ type Router struct {
 	client mqtt.Client
 	// pool is a sync.Pool for context-multiplex
 	pool sync.Pool
+	dedup bool
+	mids Cache
+	midPrefix string
+	midExpiration int
+	topicNum int
 }
 
 // NewRouter returns a *Router that uses two default middlewares logger and recovery
-func NewRouter(c mqtt.Client) *Router {	
+func NewRouter(conf *Config, mids Cache) (*Router, error) {	
 	router := &Router{
 		group: &Group{},
-		client: c,
+	}
+	if conf.Dedup && mids == nil {
+		return nil, InternalError("mids can not be nil when conf.Dedup is set to true")
+	}
+	router.mids = mids
+	router.dedup = conf.Dedup
+	if conf.Name == "" {
+		return nil, ParamRequiredError("Name")
+	}
+	if conf.Prefix != "" {
+		router.midPrefix = fmt.Sprintf("%s:mid:%s:", conf.Prefix, conf.Name)
+	}else {
+		router.midPrefix = fmt.Sprintf("mid:%s:", conf.Name)
+	}
+	if conf.Expiration <= 0 {
+		router.midExpiration = defaultMidExpiration
+	}else {
+		router.midExpiration = conf.Expiration
+	}
+	c, err := newClient(conf.Client)
+	if err != nil {
+		return nil, ClientError(err.Error())
+	}
+	router.client = c
+	if router.dedup {
+		router.Use(dedup())
 	}
 	router.Use(logger(), recovery())
 	router.pool.New = func() interface{} {
 		return router.allocateContext()
 	}
-	return router
+	return router, nil
 }
 
 // Group creates a new group
@@ -69,33 +134,49 @@ func (router *Router) allocateContext() *Context{
 	return &Context{router: router}
 }
 
+func dedup() Handler {
+	return func(c *Context) {
+		defer c.Next()
+		var info struct {
+			Mid string `json:"mid"`
+		}
+		if err := c.BindJSON(&info); err != nil || info.Mid == "" {
+			glog.V(1).Infof("[%s] >>> MQTT DUP: Dedup failed because mid not offered %s", c.session, c.topic)
+			return
+		}
+		if c.isDup(info.Mid) {
+			glog.V(1).Infof("[%s] >>> MQTT DUP: Removed 1 message %s", c.session, c.topic)
+			c.Abort()
+			return
+		}
+		c.cache(info.Mid)
+	}
+}
+
 // logger combine the MQTT request and response as log content, and log after response. 
 func logger() Handler {
 	return func(c *Context) {
 		start := time.Now()
-		msg := c.MustGet("mqtt-msg").(mqtt.Message)
-		sid := c.MustGet("mqtt-session").(string)
-		b := bytes.NewBufferString(fmt.Sprintf("\n[%s] %s %s", sid, ">>> MQTT ", msg.Topic()))
-		b.WriteString(fmt.Sprintf("\n[%s] %s", sid, string(msg.Payload())))
+		b := bytes.NewBufferString(fmt.Sprintf("%s %s", ">>> MQTT", c.topic))
+		b.WriteString(fmt.Sprintf("\n%s", string(c.payload)))
 		c.Next()
 		end := time.Now()
 
 		resp, exists := c.Get("mqtt-resp")
 		if exists {
 			r := resp.(Response)
-			b.WriteString(fmt.Sprintf("\n[%s] %s %s", sid, "<<< MQTT ", r.Topic))
-			b.WriteString(fmt.Sprintf("\n[%s] %s", sid, string(r.Msg)))
+			b.WriteString(fmt.Sprintf("\n%s %s", "<<< MQTT", r.Topic))
+			b.WriteString(fmt.Sprintf("\n%s", string(r.Msg)))
 		}else{
-			b.WriteString(fmt.Sprintf("\n[%s] %s", sid, "<<< MQTT "))
+			b.WriteString(fmt.Sprintf("\n%s", "<<< MQTT"))
 		}
 		latency := end.Sub(start)
-		b.WriteString(fmt.Sprintf("\n[%s] %v - %v |%13v\n\n",
-			sid,
+		b.WriteString(fmt.Sprintf("\n%v - %v |%13v\n\n",
 			start.Format("0102 15:04:05.000000"),
 			end.Format("0102 15:04:05.000000"),
 			latency,
 		))
-		glog.V(1).Info(b.String())
+		glog.V(1).Infof("\n[%s]\n%s", c.session, b.String())
 	}
 }
 

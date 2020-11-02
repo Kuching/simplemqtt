@@ -7,8 +7,8 @@
 package smqtt
 
 import (
+	"fmt"
 	"github.com/eclipse/paho.mqtt.golang"
-	"github.com/Kuching/simplemqtt/session"
 )
 
 // Group allows us to create MQTT API and manipulate them as a group.
@@ -28,12 +28,17 @@ func (group *Group) Use(handler ...Handler) {
 // Listen is used to make real subscription to MQTT broker.
 func (group *Group) Listen(sub_topic string, qos byte, handler ...Handler) error{
 	handlers := combine(group.handlers, handler)
+	group.router.topicNum++
+	abbr := fmt.Sprintf("t%d", group.router.topicNum)
 	var msg_handler = func(client mqtt.Client, msg mqtt.Message){
 		c := group.router.pool.Get().(*Context)
 		c.reset()
 		c.setHandlers(handlers)
-		c.Set("mqtt-msg", msg)
-		c.Set("mqtt-session", session.SessionID())
+		c.payload = msg.Payload()
+		c.topic = msg.Topic()
+		c.qos = msg.Qos()
+		c.session = SessionID()
+		c.abbr = abbr
 		c.Start()
 		group.router.pool.Put(c)
 	}
