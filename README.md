@@ -1,2 +1,2 @@
-# simple_mqtt
-# 基于paho.mqtt.golang的一个类gin MQTT框架
+# simplemqtt
+### 一个类gin的MQTT框架（基于paho.mqtt.golang）
